@@ -1,0 +1,395 @@
+name: Package toolchain
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_nightly:
+        description: Publish a dated nightly from the default branch
+        type: boolean
+        default: false
+  push:
+    tags: ['v*']
+  schedule:
+    - cron: '17 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  identify:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      toolchain: ${{ steps.identity.outputs.toolchain }}
+      tag: ${{ steps.identity.outputs.tag }}
+      channel: ${{ steps.identity.outputs.channel }}
+    steps:
+      - name: Select the toolchain identity
+        id: identity
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PUBLISH_NIGHTLY: ${{ inputs.publish_nightly }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          tag= toolchain= channel=
+          case "$GITHUB_EVENT_NAME" in
+            push)
+              tag=$GITHUB_REF_NAME
+              number='(0|[1-9][0-9]*)'
+              identifiers='[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*'
+              version="^v$number\.$number\.$number(-$identifiers)?(\+$identifiers)?\$"
+              if [[ ! $tag =~ $version || ${#tag} -gt 97 ]]; then
+                echo "Expected a tag of the form v<Cargo version>, received '$tag'." >&2
+                exit 1
+              fi
+              toolchain=${tag#v}
+              precedence=${toolchain%%+*}
+              if [[ $precedence == *-* ]]; then
+                case "${precedence#*-}" in beta|beta.*|rc|rc.*) channel=beta ;; esac
+              else
+                channel=stable
+              fi
+              ;;
+            schedule|workflow_dispatch)
+              if [[ $GITHUB_EVENT_NAME == workflow_dispatch ]]; then
+                if [[ $PUBLISH_NIGHTLY != true ]]; then
+                  printf 'toolchain=\ntag=\nchannel=\n' >> "$GITHUB_OUTPUT"
+                  exit 0
+                fi
+                if [[ $GITHUB_REF != "refs/heads/$DEFAULT_BRANCH" ]]; then
+                  echo "Nightly is published from $DEFAULT_BRANCH." >&2
+                  exit 1
+                fi
+              fi
+              # The run creation date stays fixed across reruns and runner delays.
+              created=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .created_at)
+              tag="nightly-${created%%T*}"
+              toolchain=$tag
+              channel=nightly
+              ;;
+          esac
+          printf 'toolchain=%s\ntag=%s\nchannel=%s\n' "$toolchain" "$tag" "$channel" >> "$GITHUB_OUTPUT"
+
+  package:
+    needs: identify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+          - runner: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    env:
+      HOST_TARGET: ${{ matrix.target }}
+      TOOLCHAIN: ${{ needs.identify.outputs.toolchain }}
+      RELEASE_CHANNEL: ${{ needs.identify.outputs.channel }}
+      ZKCL_PACKAGE_WASM: ${{ matrix.target == 'x86_64-unknown-linux-gnu' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install Wasm target for the runtime template
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        run: rustup target add wasm32-unknown-unknown
+      - name: Build archive
+        shell: bash
+        run: |
+          args=("$RUNNER_TEMP/zkcl-packages")
+          if [[ -n $TOOLCHAIN ]]; then args+=("$TOOLCHAIN"); fi
+          scripts/package-toolchain.sh "${args[@]}"
+      - name: Verify installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifacts="$RUNNER_TEMP/zkcl-packages"
+          manifest="$artifacts/zkcl-toolchain-$HOST_TARGET.json"
+          toolchain=$(jq -er .toolchain "$manifest")
+          version=$(jq -er .version "$manifest")
+          tag="v$toolchain"
+          expected="zkcl $version"
+          if [[ $toolchain == nightly-* ]]; then
+            tag=$toolchain
+            expected+=" ($toolchain)"
+          fi
+
+          mirror="$RUNNER_TEMP/zkcl-mirror/releases"
+          exact="$mirror/download/$tag"
+          mkdir -p "$exact"
+          cp "$artifacts/zkcl-$toolchain-$HOST_TARGET.tar.gz" \
+            "$artifacts/zkcl-launcher-$HOST_TARGET.tar.gz" \
+            "$artifacts/zkcl-launcher-$HOST_TARGET.tar.gz.sha256" \
+            scripts/install-toolchain.sh "$exact/"
+          cp "$artifacts"/zkcl-sdk-*.tar.gz "$exact/"
+          cp "$manifest" "$exact/zkcl-toolchain-v1.json"
+
+          channel=$RELEASE_CHANNEL
+          if [[ -z $TOOLCHAIN && ${version%%+*} != *-* ]]; then channel=stable; fi
+          case "$channel" in
+            stable) bootstrap="$mirror/latest/download" ;;
+            beta|nightly) bootstrap="$mirror/download/$channel" ;;
+            *) bootstrap=$exact ;;
+          esac
+          if [[ -n $channel ]]; then
+            mkdir -p "$bootstrap"
+            printf '%s\n' "$toolchain" > "$bootstrap/zkcl-channel-v1.txt"
+            cp scripts/install-toolchain.sh "$bootstrap/"
+          fi
+
+          prefix="$RUNNER_TEMP/zkcl-install"
+          sh -s -- --toolchain "${channel:-$toolchain}" --from "$mirror" --prefix "$prefix" \
+            < "$bootstrap/install-toolchain.sh"
+          test "$("$prefix/bin/zkcl" --version)" = "$expected"
+          test "$("$prefix/bin/zkclx" --version)" = "$expected"
+          "$prefix/bin/zkclx" --help | grep -F 'Usage: zkcl x'
+
+          "$prefix/bin/zkcl" toolchain target list | grep -F "$HOST_TARGET (installed)"
+          "$prefix/bin/zkcl" toolchain component remove sdk
+          "$prefix/bin/zkcl" toolchain component add sdk
+          sdk_root="$(dirname "$(dirname "$("$prefix/bin/zkcl" toolchain which)")")/sdk/$HOST_TARGET"
+          test -s "$sdk_root/lib/libzkcl_capi.a"
+          test -s "$sdk_root/include/zkcl.h"
+          jq -e --arg target "$HOST_TARGET" ' .target == $target and (.link_args | type == "array")' "$sdk_root/runtime.json"
+
+          test_dir="$RUNNER_TEMP/zkcl-installed-build"
+          mkdir -p "$test_dir/traps"
+          cat > "$test_dir/traps/cargo" <<'EOF'
+          #!/bin/sh
+          echo 'installed builds must use the SDK' >&2
+          exit 1
+          EOF
+          cp "$test_dir/traps/cargo" "$test_dir/traps/rustc"
+          chmod +x "$test_dir/traps/cargo" "$test_dir/traps/rustc"
+          cat > "$test_dir/answer.lisp" <<'EOF'
+          (defun add-answer (x) (+ x 1))
+          (format t "~D~%" (add-answer 41))
+          EOF
+          PATH="$test_dir/traps:$PATH" "$prefix/bin/zkcl" build "$test_dir/answer.lisp" -o "$test_dir/answer"
+          test "$("$test_dir/answer")" = 42
+
+          if [[ $ZKCL_PACKAGE_WASM == 1 ]]; then
+            "$prefix/bin/zkcl" toolchain target remove wasm32-unknown-unknown
+            "$prefix/bin/zkcl" toolchain target add wasm32-unknown-unknown
+            test -s "$(dirname "$sdk_root")/wasm32-unknown-unknown/runtime.wasm"
+            PATH="$test_dir/traps:$PATH" "$prefix/bin/zkcl" build "$test_dir/answer.lisp" \
+              --target wasm32-unknown-unknown -o "$test_dir/answer.wasm"
+            test "$("$prefix/bin/zkcl" run "$test_dir/answer.wasm")" = 42
+          fi
+
+          mkdir -p "$RUNNER_TEMP/zkcl-project"
+          cd "$RUNNER_TEMP/zkcl-project"
+          "$prefix/bin/zkcl" toolchain pin "$toolchain"
+          test "$(cat zkcl-toolchain)" = "$toolchain"
+          test -x "$("$prefix/bin/zkcl" toolchain which)"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: zkcl-toolchain-${{ matrix.target }}
+          path: ${{ runner.temp }}/zkcl-packages/
+          if-no-files-found: error
+
+  assemble:
+    needs: [identify, package]
+    runs-on: ubuntu-24.04
+    env:
+      TOOLCHAIN: ${{ needs.identify.outputs.toolchain }}
+      RELEASE_CHANNEL: ${{ needs.identify.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: zkcl-toolchain-*
+          path: ${{ runner.temp }}/toolchains
+      - name: Assemble and verify release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifacts="$RUNNER_TEMP/toolchains"
+          release="$RUNNER_TEMP/zkcl-release"
+          hosts=(aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu)
+          fragments=()
+          for host in "${hosts[@]}"; do
+            fragment="$artifacts/zkcl-toolchain-$host/zkcl-toolchain-$host.json"
+            jq -e --arg host "$host" '.targets | keys == [$host]' "$fragment" > /dev/null
+            fragments+=("$fragment")
+          done
+          mkdir -p "$release"
+          manifest="$release/zkcl-toolchain-v1.json"
+          jq -es --arg commit "$(git rev-parse HEAD)" '
+            .[0] as $first
+            | if length == 4 and all(.[];
+                .format == 1 and .commit == $commit and
+                .toolchain == $first.toolchain and .version == $first.version)
+              then (map(.targets[].sdk) | add) as $sdks
+                | $first + {targets: (map(.targets) | add | with_entries(.value.sdk = $sdks))}
+              else error("Toolchain manifests disagree on the release identity")
+              end
+          ' "${fragments[@]}" > "$manifest"
+          toolchain=$(jq -er .toolchain "$manifest")
+          test -z "$TOOLCHAIN" || test "$toolchain" = "$TOOLCHAIN"
+
+          for host in "${hosts[@]}"; do
+            source="$artifacts/zkcl-toolchain-$host"
+            for kind in runtime launcher; do
+              case "$kind" in
+                runtime) archive="zkcl-$toolchain-$host.tar.gz" ;;
+                launcher) archive="zkcl-launcher-$host.tar.gz" ;;
+              esac
+              hash=$(sha256sum "$source/$archive")
+              size=$(wc -c < "$source/$archive")
+              jq -e --arg host "$host" --arg kind "$kind" --arg hash "${hash%% *}" --argjson size "$size" \
+                '.targets[$host][$kind] == {size: $size, sha256: $hash}' "$manifest" > /dev/null
+              cp "$source/$archive" "$release/"
+            done
+            test "$(cat "$source/$archive.sha256")" = "${hash%% *}  $archive"
+            cp "$source/$archive.sha256" "$release/"
+            sdk="zkcl-sdk-$toolchain-$host.tar.gz"
+            hash=$(sha256sum "$source/$sdk")
+            size=$(wc -c < "$source/$sdk")
+            jq -e --arg host "$host" --arg hash "${hash%% *}" --argjson size "$size" \
+              '.targets[$host].sdk[$host] == {size: $size, sha256: $hash}' "$manifest" > /dev/null
+            cp "$source/$sdk" "$release/"
+            wasm="zkcl-sdk-$toolchain-wasm32-unknown-unknown.tar.gz"
+            if [[ -f $source/$wasm ]]; then
+              hash=$(sha256sum "$source/$wasm")
+              size=$(wc -c < "$source/$wasm")
+              jq -e --arg host "$host" --arg hash "${hash%% *}" --argjson size "$size" \
+                '.targets[$host].sdk["wasm32-unknown-unknown"] == {size: $size, sha256: $hash}' "$manifest" > /dev/null
+              cp "$source/$wasm" "$release/"
+            fi
+          done
+          cp scripts/install-toolchain.sh "$release/"
+          if [[ $RELEASE_CHANNEL == stable ]]; then
+            printf '%s\n' "$toolchain" > "$release/zkcl-channel-v1.txt"
+          fi
+      - uses: actions/upload-artifact@v6
+        with:
+          name: zkcl-release
+          path: ${{ runner.temp }}/zkcl-release/
+          if-no-files-found: error
+
+  publish:
+    if: needs.identify.outputs.tag != ''
+    needs: [identify, assemble]
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: zkcl-toolchain-publish
+      queue: max
+    permissions:
+      contents: write
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_CHANNEL: ${{ needs.identify.outputs.channel }}
+      RELEASE_TAG: ${{ needs.identify.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: zkcl-release
+          path: ${{ runner.temp }}/zkcl-release
+      - name: Publish the exact release and advance its channel
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/zkcl-release"
+          manifest=zkcl-toolchain-v1.json
+          pointer=zkcl-channel-v1.txt
+          toolchain=$(jq -er .toolchain "$manifest")
+          commit=$(jq -er .commit "$manifest")
+          assets=("$manifest" install-toolchain.sh ./*.tar.gz ./*.sha256)
+          assets=("${assets[@]#./}")
+          if [[ $RELEASE_CHANNEL == stable ]]; then assets+=("$pointer"); fi
+
+          repo="repos/$GITHUB_REPOSITORY"
+          releases=$(gh api --paginate --slurp "$repo/releases?per_page=100" | jq -c add)
+          release_for() {
+            jq -c --arg tag "$1" '[.[] | select(.tag_name == $tag)]
+              | if length > 1 then error("Multiple releases have the same tag") else .[0] // empty end' <<< "$releases"
+          }
+
+          # A queued older build can publish its own exact release. Only the
+          # highest published version or date can become the channel head.
+          channel_head() {
+            jq -er --arg channel "$RELEASE_CHANNEL" --arg tag "$RELEASE_TAG" '
+              def version_key:
+                . as $full
+                | split("+")[0] | ltrimstr("v")
+                | capture("^(?<core>[0-9.]+)(?:-(?<pre>.*))?$")
+                | [(.core | split(".") | map([length, .])),
+                    if .pre == null then [1] else
+                      [0, (.pre | split(".") | map(if test("^[0-9]+$") then [0, length, .] else [1, .] end))]
+                    end,
+                    $full];
+              def in_channel:
+                if $channel == "nightly" then test("^nightly-[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+                else test("^v[0-9]+\\.[0-9]+\\.[0-9]+" +
+                  (if $channel == "beta" then "-(?:beta|rc)(?:\\.[A-Za-z0-9-]+)*" else "" end) +
+                  "(?:\\+[A-Za-z0-9.-]+)?$") end;
+              [$tag, (.[] | select(.draft == false and .prerelease == ($channel != "stable"))
+                | select(any(.assets[]; .name == "zkcl-toolchain-v1.json" and .state == "uploaded"))
+                | .tag_name | select(in_channel))]
+              | max_by(if $channel == "nightly" then . else version_key end)
+            ' <<< "$releases"
+          }
+
+          exact=$(release_for "$RELEASE_TAG")
+          head=
+          if [[ -n $RELEASE_CHANNEL ]]; then head=$(channel_head); fi
+          if [[ -n $exact ]] && jq -e '.draft == false' <<< "$exact" > /dev/null; then
+            jq -e --args '$ARGS.positional as $required
+              | [.assets[] | select(.state == "uploaded") | .name] | contains($required)' \
+              "${assets[@]}" <<< "$exact" > /dev/null
+            echo "Toolchain $RELEASE_TAG is already published."
+          else
+            prerelease=true latest=false
+            if [[ $RELEASE_CHANNEL == stable ]]; then
+              prerelease=false
+              if [[ $head == "$RELEASE_TAG" ]]; then latest=true; fi
+            fi
+
+            verify_tag=
+            ref="refs/tags/$RELEASE_TAG"
+            tag_exists=$(gh api "$repo/git/matching-refs/tags/$RELEASE_TAG" |
+              jq -r --arg ref "$ref" 'any(.[]; .ref == $ref)')
+            if [[ $tag_exists == true || $RELEASE_CHANNEL != nightly ]]; then
+              remote_commit=$(gh api "$repo/commits/refs%2Ftags%2F$RELEASE_TAG" --jq .sha)
+              test "$remote_commit" = "$commit"
+              verify_tag=--verify-tag
+            fi
+            if [[ -z $exact ]]; then
+              gh release create "$RELEASE_TAG" ${verify_tag:+--verify-tag} --draft --target "$commit" \
+                --title "zkcl $toolchain" --notes "zkcl toolchain for $commit." --prerelease="$prerelease" --latest=false
+            elif [[ $tag_exists == false ]]; then
+              test "$(jq -er .target_commitish <<< "$exact")" = "$commit"
+            fi
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease="$prerelease" --latest="$latest"
+          fi
+
+          case "$RELEASE_CHANNEL" in
+            beta|nightly)
+              if [[ $head != "$RELEASE_TAG" ]]; then exit 0; fi
+              alias_release=$(release_for "$RELEASE_CHANNEL")
+              printf '%s\n' "$toolchain" > "$pointer"
+              if [[ -z $alias_release ]]; then
+                gh release create "$RELEASE_CHANNEL" "$pointer" install-toolchain.sh \
+                  --target "$commit" --title "zkcl $RELEASE_CHANNEL channel" \
+                  --notes "The current toolchain is named in $pointer." --prerelease --latest=false
+              elif jq -e '.draft' <<< "$alias_release" > /dev/null; then
+                gh release upload "$RELEASE_CHANNEL" "$pointer" install-toolchain.sh --clobber
+                gh release edit "$RELEASE_CHANNEL" --draft=false --prerelease --latest=false
+              else
+                gh release upload "$RELEASE_CHANNEL" install-toolchain.sh --clobber
+                gh release upload "$RELEASE_CHANNEL" "$pointer" --clobber
+              fi
+              ;;
+          esac

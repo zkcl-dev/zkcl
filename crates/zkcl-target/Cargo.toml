@@ -1,0 +1,15 @@
+[package]
+name = "zkcl-target"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Common Lisp compilation target and reader features for zkcl"
+publish.workspace = true
+
+[dependencies]
+target-lexicon = { version = "0.13", features = ["std"] }
+thiserror.workspace = true
+
+[lints]
+workspace = true

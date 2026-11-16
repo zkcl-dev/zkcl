@@ -1,0 +1,45 @@
+{
+  "name": "zkcl-debug",
+  "displayName": "zkcl Debugger",
+  "description": "Debug Common Lisp using zkcl's standard Debug Adapter Protocol server.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "zkcl-dev",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Debuggers"],
+  "main": "./extension.js",
+  "activationEvents": ["onDebug:zkcl"],
+  "contributes": {
+    "languages": [{ "id": "commonlisp", "aliases": ["Common Lisp", "commonlisp"], "extensions": [".lisp", ".lsp", ".cl", ".asd"] }],
+    "configuration": {
+      "title": "zkcl",
+      "properties": {
+        "zkcl.executablePath": { "type": "string", "default": "zkcl", "description": "Path to the zkcl executable." }
+      }
+    },
+    "breakpoints": [{ "language": "lisp" }, { "language": "commonlisp" }],
+    "debuggers": [{
+      "type": "zkcl",
+      "label": "zkcl Common Lisp",
+      "languages": ["lisp", "commonlisp"],
+      "configurationAttributes": {
+        "launch": {
+          "required": ["program"],
+          "properties": {
+            "program": { "type": "string", "description": "Lisp file to load when configuration is complete." },
+            "cwd": { "type": "string", "description": "Working directory for the runtime.", "default": "${workspaceFolder}" },
+            "entry": { "type": "string", "description": "Optional Lisp expression evaluated after loading program, for example (my-package:main)." },
+            "moduleDirectories": { "type": "array", "items": { "type": "string" }, "description": "Directories searched by REQUIRE." }
+          }
+        }
+      },
+      "initialConfigurations": [{
+        "type": "zkcl", "request": "launch", "name": "Debug Lisp file", "program": "${file}", "cwd": "${workspaceFolder}"
+      }],
+      "configurationSnippets": [{
+        "label": "zkcl: Debug Lisp file", "description": "Load a Lisp file in a dedicated runtime.",
+        "body": { "type": "zkcl", "request": "launch", "name": "Debug Lisp file", "program": "^\"\\${file}\"", "cwd": "^\"\\${workspaceFolder}\"" }
+      }]
+    }]
+  }
+}

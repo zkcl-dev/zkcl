@@ -1,0 +1,7 @@
+(defpackage #:embed.app (:use #:cl) (:export #:main #:call-host))
+(in-package #:embed.app)
+(defun main ()
+  (let ((answer (+ (embed.asdf:answer) cl-user::*embedded-generated*)))
+    (format t "~D|~A|~D~%" answer embed.asdf:*resource* cl-user::*embedded-native-loads*)
+    (values answer embed.asdf:*resource* cl-user::*embedded-native-loads*)))
+(defun call-host () (+ (embed.native:answer) (embed.host:offset)))

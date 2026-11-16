@@ -1,0 +1,22 @@
+[package]
+name = "zkcl-vop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Scalar leaf instruction selection and native emission for zkcl"
+
+[features]
+default = ["native"]
+native = ["dep:arm32-assembly", "dep:dynasmrt", "dep:target-lexicon"]
+
+[dependencies]
+arm32-assembly = { package = "scaleservers-arm32-assembly", version = "1.0.0", default-features = false, optional = true }
+dynasmrt = { version = "5.1", optional = true }
+zkcl-bytecode = { workspace = true, features = ["analysis"] }
+target-lexicon = { version = "0.13", optional = true }
+thiserror.workspace = true
+
+[lints]
+workspace = true

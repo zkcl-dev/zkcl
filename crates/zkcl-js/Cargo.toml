@@ -1,0 +1,23 @@
+[package]
+name = "zkcl-js"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Standalone ECMAScript module compiler and runtime for zkcl"
+
+[dependencies]
+base64 = "0.22"
+zkcl-bytecode.workspace = true
+zkcl-opt.workspace = true
+zkcl-target.workspace = true
+serde_json = "1"
+thiserror.workspace = true
+url = "2"
+
+[dev-dependencies]
+zkcl-runtime.workspace = true
+
+[lints]
+workspace = true

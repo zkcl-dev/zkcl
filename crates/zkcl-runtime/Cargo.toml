@@ -1,0 +1,58 @@
+[package]
+name = "zkcl-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Core Common Lisp runtime, compiler, GC, and bytecode VM for zkcl"
+publish.workspace = true
+exclude = ["/tests/testing_libraries.rs"]
+
+[[example]]
+name = "wasm_runtime"
+crate-type = ["cdylib"]
+
+[features]
+default = ["lexical-patterns", "asdf-ports"]
+asdf = []
+asdf-ports = ["asdf"]
+ffi = ["dep:libffi", "dep:libloading"]
+lexical-patterns = ["dep:zkcl-pattern"]
+syntax-editing = ["zkcl-syntax/analysis"]
+vm-metrics = []
+vm-no-spec = []
+
+[dependencies]
+zkcl-diagnostics.workspace = true
+libffi = { version = "5.2", optional = true }
+libloading = { version = "0.9", optional = true }
+smallvec = "1"
+libm = "0.2"
+num-bigint = "0.4.6"
+num-integer = "0.1.46"
+num-rational = "0.4.2"
+num-traits = "0.2"
+rustc-hash = "2.1"
+thiserror.workspace = true
+zkcl-syntax = { workspace = true, default-features = false }
+zkcl-bytecode.workspace = true
+zkcl-target.workspace = true
+zkcl-pattern = { workspace = true, optional = true }
+
+[target.'cfg(any(target_arch = "aarch64", target_arch = "x86_64"))'.dependencies]
+fearless_simd = "1.2.0"
+
+[target.'cfg(not(all(target_family = "wasm", any(target_os = "unknown", target_os = "none"))))'.dependencies]
+getrandom = "0.4"
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+zkcl-wasm = { workspace = true, features = ["abi"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
+[lints]
+workspace = true

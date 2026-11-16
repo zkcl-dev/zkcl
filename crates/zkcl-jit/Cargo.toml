@@ -1,0 +1,55 @@
+[package]
+name = "zkcl-jit"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "In-process native compilers and background compilation for zkcl"
+
+[features]
+default = ["cranelift"]
+cranelift = ["dep:zkcl-bytecode", "dep:zkcl-opt", "zkcl-opt/integer-equality-saturation", "dep:zkcl-cranelift", "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:cranelift-native"]
+direct = ["dep:zkcl-vop", "dep:target-lexicon", "cranelift"]
+
+[dependencies]
+target-lexicon = { version = "0.13", optional = true }
+zkcl-bytecode = { workspace = true, optional = true }
+zkcl-opt = { workspace = true, optional = true }
+zkcl-cranelift = { workspace = true, optional = true }
+zkcl-vop = { workspace = true, features = ["native"], optional = true }
+zkcl-runtime = { workspace = true }
+cranelift-codegen = { version = "0.123.13", optional = true, default-features = false, features = ["std", "unwind", "host-arch"] }
+cranelift-frontend = { version = "0.123.13", optional = true }
+cranelift-native = { version = "0.123.13", optional = true }
+rustc-hash = "2.1"
+thiserror.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_Diagnostics_Debug", "Win32_System_Memory", "Win32_System_SystemInformation", "Win32_System_Threading"] }
+
+[[test]]
+name = "jit_backend"
+required-features = ["cranelift"]
+
+[[test]]
+name = "integer_equality_saturation"
+required-features = ["cranelift"]
+
+[[test]]
+name = "float_array_access"
+required-features = ["cranelift"]
+
+[[test]]
+name = "float_array_write"
+required-features = ["cranelift"]
+
+[[test]]
+name = "simd_pack"
+required-features = ["cranelift"]
+
+[lints]
+workspace = true

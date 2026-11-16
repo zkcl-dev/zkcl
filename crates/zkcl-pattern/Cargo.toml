@@ -1,0 +1,18 @@
+[package]
+name = "zkcl-pattern"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Text and byte pattern matching and Unicode support for zkcl"
+
+[lints]
+workspace = true
+
+[dependencies]
+icu_casemap = "=2.4.0"
+icu_properties = "=2.4.0"
+thiserror.workspace = true
+unicode-normalization = "=0.1.25"
+unicode-segmentation = "=1.13.3"

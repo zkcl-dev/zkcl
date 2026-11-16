@@ -1,0 +1,91 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/zkcl",
+    "crates/zkcl-capi",
+    "crates/zkcl-runtime",
+    "crates/zkcl-wasm",
+    "crates/zkcl-js",
+    "crates/zkcl-opt",
+    "crates/zkcl-cranelift",
+    "crates/zkcl-jit",
+    "crates/zkcl-vop",
+    "crates/zkcl-aot",
+    "crates/zkcl-diagnostics",
+    "crates/zkcl-terminal",
+    "crates/zkcl-syntax",
+    "crates/zkcl-pattern",
+    "crates/zkcl-bytecode",
+    "crates/zkcl-target",
+    "crates/zkcl-lsp",
+    "crates/zkcl-project",
+    "crates/zkcl-registry",
+    "crates/zkcl-registry-server",
+    "crates/zkcl-cli",
+    "crates/zkcl-toolchain",
+]
+default-members = [
+    "crates/zkcl",
+    "crates/zkcl-capi",
+    "crates/zkcl-runtime",
+    "crates/zkcl-wasm",
+    "crates/zkcl-js",
+    "crates/zkcl-opt",
+    "crates/zkcl-cranelift",
+    "crates/zkcl-jit",
+    "crates/zkcl-target",
+    "crates/zkcl-vop",
+    "crates/zkcl-aot",
+    "crates/zkcl-diagnostics",
+    "crates/zkcl-terminal",
+    "crates/zkcl-syntax",
+    "crates/zkcl-pattern",
+    "crates/zkcl-bytecode",
+    "crates/zkcl-lsp",
+    "crates/zkcl-project",
+    "crates/zkcl-registry",
+    "crates/zkcl-registry-server",
+    "crates/zkcl-cli",
+    "crates/zkcl-toolchain",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.100"
+license = "Apache-2.0"
+publish = ["crates-io"]
+
+[workspace.dependencies]
+zkcl = { path = "crates/zkcl", version = "=0.1.0" }
+zkcl-runtime = { path = "crates/zkcl-runtime", version = "=0.1.0" }
+zkcl-wasm = { path = "crates/zkcl-wasm", version = "=0.1.0", default-features = false }
+zkcl-js = { path = "crates/zkcl-js", version = "=0.1.0" }
+zkcl-opt = { path = "crates/zkcl-opt", version = "=0.1.0", default-features = false }
+zkcl-cranelift = { path = "crates/zkcl-cranelift", version = "=0.1.0" }
+zkcl-jit = { path = "crates/zkcl-jit", version = "=0.1.0", default-features = false }
+zkcl-vop = { path = "crates/zkcl-vop", version = "=0.1.0", default-features = false }
+zkcl-aot = { path = "crates/zkcl-aot", version = "=0.1.0", default-features = false }
+zkcl-diagnostics = { path = "crates/zkcl-diagnostics", version = "=0.1.0" }
+zkcl-terminal = { path = "crates/zkcl-terminal", version = "=0.1.0" }
+zkcl-syntax = { path = "crates/zkcl-syntax", version = "=0.1.0", default-features = false }
+zkcl-pattern = { path = "crates/zkcl-pattern", version = "=0.1.0" }
+zkcl-bytecode = { path = "crates/zkcl-bytecode", version = "=0.1.0" }
+zkcl-target = { path = "crates/zkcl-target", version = "=0.1.0" }
+zkcl-lsp = { path = "crates/zkcl-lsp", version = "=0.1.0" }
+zkcl-project = { path = "crates/zkcl-project", version = "=0.1.0" }
+zkcl-registry = { path = "crates/zkcl-registry", version = "=0.1.0" }
+inkwell = { version = "0.11", features = ["llvm21-1-prefer-dynamic"] }
+thiserror = "2"
+clap = { version = "4", features = ["derive", "wrap_help"] }
+clap_complete = { version = "4", features = ["unstable-dynamic"] }
+annotate-snippets = "0.12"
+pathdiff = "0.2"
+
+[workspace.lints.clippy]
+cloned_instead_of_copied = "warn"
+flat_map_option = "warn"
+manual_instant_elapsed = "warn"
+manual_is_multiple_of = "warn"
+manual_let_else = "warn"
+manual_string_new = "warn"

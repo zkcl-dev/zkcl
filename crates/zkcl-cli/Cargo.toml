@@ -1,0 +1,61 @@
+[package]
+name = "zkcl-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Command line and terminal REPL for zkcl"
+exclude = ["/tests/testing_framework.rs"]
+
+[features]
+default = ["ffi", "cranelift", "direct-jit"]
+ffi = ["zkcl/ffi"]
+cranelift = ["cranelift-jit", "cranelift-aot"]
+cranelift-jit = ["zkcl/jit"]
+cranelift-aot = ["zkcl-aot/cranelift"]
+direct-jit = ["zkcl/direct-jit"]
+llvm-aot = ["zkcl-aot/llvm"]
+
+[[bin]]
+name = "zkcl"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+clap_complete.workspace = true
+zkcl-diagnostics.workspace = true
+zkcl-terminal.workspace = true
+zkcl-bytecode.workspace = true
+zkcl-js.workspace = true
+nu-ansi-term = "0.50.3"
+reedline = { version = "0.53.0", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+target-lexicon = { version = "0.13.0", features = ["std"] }
+tempfile = "3"
+thiserror.workspace = true
+tokio = { version = "1", features = ["rt"] }
+unicode-segmentation = "1.13.3"
+unicode-width = "0.2.3"
+url = "2"
+zkcl = { workspace = true, features = ["project", "aot", "syntax-editing"] }
+zkcl-aot.workspace = true
+zkcl-syntax = { workspace = true, features = ["analysis"] }
+zkcl-lsp.workspace = true
+zkcl-project.workspace = true
+zkcl-registry = { workspace = true, features = ["signed", "remote"] }
+zkcl-wasm = { workspace = true, features = ["abi", "engine", "codegen"] }
+getrandom = "0.4"
+capstone = { version = "0.14.0", default-features = false, features = ["std", "full", "arch_arm64", "arch_x86"] }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { version = "1", features = ["event"] }
+signal-hook = "0.3"
+
+[dev-dependencies]
+wasmparser = { version = "0.239", default-features = false, features = ["std"] }
+
+[lints]
+workspace = true

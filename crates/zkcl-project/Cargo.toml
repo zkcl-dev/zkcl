@@ -1,0 +1,40 @@
+[package]
+name = "zkcl-project"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Project manifests and dependency resolution for zkcl"
+
+[features]
+default = []
+workspace = [
+    "dep:zkcl-diagnostics",
+    "dep:zkcl-registry",
+    "dep:serde",
+    "dep:serde_json",
+    "dep:tempfile",
+]
+fetch = [
+    "workspace",
+    "dep:tokio",
+    "dep:url",
+    "zkcl-registry/remote",
+    "zkcl-registry/signed",
+]
+
+[dependencies]
+semver = "1.0"
+thiserror.workspace = true
+zkcl-syntax.workspace = true
+zkcl-diagnostics = { workspace = true, optional = true }
+zkcl-registry = { workspace = true, optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+tempfile = { version = "3", optional = true }
+tokio = { version = "1", features = ["rt"], optional = true }
+url = { version = "2", optional = true }
+
+[lints]
+workspace = true

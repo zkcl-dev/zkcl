@@ -1,0 +1,24 @@
+[package]
+name = "zkcl-registry-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "HTTP publishing and registry server adapter for zkcl"
+
+[dependencies]
+axum = "0.8"
+futures = "0.3"
+serde_json = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "signal", "time", "macros", "fs", "io-util"] }
+tower-http = { version = "0.6", features = ["fs", "limit"] }
+zkcl-project.workspace = true
+zkcl-registry = { workspace = true, features = ["remote"] }
+
+[dev-dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
+
+[lints]
+workspace = true
