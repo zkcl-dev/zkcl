@@ -1,0 +1,24 @@
+[package]
+name = "zkcl-bytecode"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "zkcl register instructions and compiled-file format"
+
+[features]
+# CFG and dataflow analysis is used by native compilers, not by the bytecode VM.
+analysis = []
+
+[dependencies]
+zkcl-target.workspace = true
+num-bigint = "0.4.6"
+num-integer = "0.1.46"
+num-traits = "0.2.19"
+serde = { version = "1", features = ["derive"] }
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"] }
+thiserror.workspace = true
+
+[lints]
+workspace = true

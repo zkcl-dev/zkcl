@@ -1,0 +1,40 @@
+[package]
+name = "zkcl-aot"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Offline AOT compiler and relocatable object file emitter for zkcl"
+
+[features]
+default = ["cranelift"]
+cranelift = [
+    "dep:zkcl-opt", "dep:rustc-hash", "dep:zkcl-cranelift",
+    "dep:cranelift-codegen", "dep:cranelift-frontend", "dep:cranelift-native",
+    "dep:sha2", "dep:tempfile",
+]
+llvm = ["dep:inkwell", "dep:zkcl-opt", "dep:rustc-hash"]
+
+[dependencies]
+inkwell = { workspace = true, optional = true }
+zkcl-bytecode = { workspace = true }
+zkcl-opt = { workspace = true, optional = true }
+zkcl-target.workspace = true
+zkcl-vop = { workspace = true, features = ["native"] }
+zkcl-cranelift = { workspace = true, optional = true }
+cranelift-codegen = { version = "0.123.13", optional = true, default-features = false, features = ["std", "unwind", "host-arch", "all-native-arch", "incremental-cache"] }
+cranelift-frontend = { version = "0.123.13", optional = true }
+cranelift-native = { version = "0.123.13", optional = true }
+target-lexicon = "0.13.0"
+object = { version = "0.37.3", default-features = false, features = ["write", "read", "std", "elf", "macho", "coff"] }
+rustc-hash = { version = "2.1", optional = true }
+sha2 = { version = "0.10", optional = true }
+tempfile = { version = "3", optional = true }
+thiserror.workspace = true
+
+[dev-dependencies]
+zkcl-opt = { workspace = true, features = ["operation-samples"] }
+
+[lints]
+workspace = true

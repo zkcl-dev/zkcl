@@ -1,0 +1,18 @@
+[package]
+name = "zkcl-terminal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Formats terminal output for zkcl and its launcher"
+
+[dependencies]
+zkcl-diagnostics.workspace = true
+annotate-snippets.workspace = true
+clap.workspace = true
+pathdiff.workspace = true
+terminal_size = "0.4"
+
+[lints]
+workspace = true

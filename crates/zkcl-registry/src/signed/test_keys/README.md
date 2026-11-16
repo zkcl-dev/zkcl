@@ -1,0 +1,1 @@
+Test-only public RSA key and root copied from awslabs/tough tag tough-v0.24.0, tough/tests/data/simple-rsa/root.json and tough/tests/data/snakeoil.pem. Copyright Amazon.com, Inc. or affiliates; SPDX-License-Identifier: MIT OR Apache-2.0. Never use this publicly known private key outside tests.

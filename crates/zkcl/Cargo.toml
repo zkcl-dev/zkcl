@@ -1,0 +1,70 @@
+[package]
+name = "zkcl"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "A Common Lisp implementation"
+publish.workspace = true
+exclude = ["/tests/pattern_matching.rs"]
+
+[features]
+default = ["lexical-patterns", "asdf-ports"]
+asdf = ["zkcl-runtime/asdf"]
+asdf-ports = ["asdf", "zkcl-runtime/asdf-ports"]
+lexical-patterns = ["zkcl-runtime/lexical-patterns"]
+syntax-editing = ["zkcl-runtime/syntax-editing"]
+ffi = ["zkcl-runtime/ffi"]
+jit = ["dep:zkcl-jit", "zkcl-jit/cranelift"]
+direct-jit = ["dep:zkcl-jit", "zkcl-jit/direct"]
+vm-metrics = ["zkcl-runtime/vm-metrics"]
+vm-no-spec = ["zkcl-runtime/vm-no-spec"]
+project = ["delivery", "zkcl-project/fetch"]
+delivery = ["zkcl-project/workspace", "dep:zkcl-project", "dep:zkcl-registry", "dep:serde", "dep:serde_json", "dep:tempfile", "dep:target-lexicon", "dep:thiserror"]
+aot = ["delivery", "dep:zkcl-aot", "dep:zkcl-bytecode"]
+
+[[example]]
+name = "project"
+required-features = ["project"]
+
+[[example]]
+name = "bundle"
+required-features = ["delivery"]
+
+[[bench]]
+name = "vm_startup_and_loops"
+harness = false
+
+[[bench]]
+name = "vm_language_workloads"
+harness = false
+
+[[test]]
+name = "structural_editing"
+required-features = ["syntax-editing"]
+
+[[test]]
+name = "lexical_matching"
+required-features = ["lexical-patterns"]
+
+[dependencies]
+zkcl-runtime.workspace = true
+zkcl-project = { workspace = true, optional = true }
+zkcl-registry = { workspace = true, optional = true }
+zkcl-aot = { workspace = true, optional = true }
+zkcl-bytecode = { workspace = true, optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
+tempfile = { version = "3", optional = true }
+target-lexicon = { version = "0.13.0", features = ["std"], optional = true }
+thiserror = { workspace = true, optional = true }
+zkcl-jit = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+postcard = { version = "1.1.3", default-features = false, features = ["alloc"] }
+zkcl-aot.workspace = true
+zkcl-bytecode.workspace = true
+
+[lints]
+workspace = true

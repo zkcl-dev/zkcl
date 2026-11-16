@@ -1,0 +1,21 @@
+[package]
+name = "zkcl-lsp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Language Server Protocol adapter for zkcl source analysis"
+
+[dependencies]
+lsp-server = "0.10"
+lsp-types = "0.97"
+serde_json = "1"
+thiserror.workspace = true
+zkcl-diagnostics.workspace = true
+zkcl-syntax = { workspace = true, features = ["analysis"] }
+zkcl-project.workspace = true
+zkcl-target.workspace = true
+
+[lints]
+workspace = true

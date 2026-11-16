@@ -1,0 +1,26 @@
+[package]
+name = "zkcl-opt"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Middle-end SSA optimizer for zkcl bytecode"
+
+[dependencies]
+egg = { version = "0.11", optional = true }
+quanta = { version = "0.12", optional = true }
+zkcl-bytecode = { workspace = true, features = ["analysis"] }
+thiserror.workspace = true
+rustc-hash = "2.1"
+
+[features]
+default = ["integer-equality-saturation"]
+integer-equality-saturation = ["dep:egg", "dep:quanta"]
+# Exposes `operation_samples`, the shared SSA operation samples backend lowering tests consume. Additive only.
+operation-samples = []
+# Counts `NativeOp::for_op` calls per thread so tests can assert single derivation.
+counters = []
+
+[lints]
+workspace = true

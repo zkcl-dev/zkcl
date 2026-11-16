@@ -1,0 +1,16 @@
+(lambda (object &key (slot-names nil names-p) environment)
+  (declare (ignore environment))
+  (let* ((class (class-of object))
+         (names (cond (names-p slot-names)
+                      ((typep object 'structure-object) (funcall %STRUCTURE-SLOT-NAMES object))
+                      (t (loop for slot in (zk-mop:class-slots class)
+                               when (eq :instance (zk-mop:slot-definition-allocation slot))
+                                 collect (zk-mop:slot-definition-name slot))))))
+    (values `(allocate-instance ',class)
+            (when names
+              (cons 'progn
+                    (mapcar (lambda (name)
+                              (if (slot-boundp object name)
+                                  `(setf (slot-value ',object ',name) ',(slot-value object name))
+                                  `(slot-makunbound ',object ',name)))
+                            names))))))

@@ -1,0 +1,24 @@
+[package]
+name = "zkcl-cranelift"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Shared Cranelift SSA lowering backend for zkcl JIT and AOT"
+
+[dependencies]
+zkcl-bytecode = { workspace = true }
+zkcl-opt = { workspace = true }
+zkcl-target.workspace = true
+cranelift-codegen = { version = "0.123.13", default-features = false, features = ["std", "unwind", "host-arch"] }
+cranelift-frontend = "0.123.13"
+rustc-hash = "2.1"
+thiserror.workspace = true
+
+[dev-dependencies]
+zkcl-opt = { workspace = true, features = ["operation-samples", "counters"] }
+zkcl-target.workspace = true
+
+[lints]
+workspace = true

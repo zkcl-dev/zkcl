@@ -1,0 +1,37 @@
+[package]
+name = "zkcl-registry"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Verified immutable source archives and local content storage for zkcl"
+
+[features]
+default = []
+remote = ["dep:reqwest", "dep:url"]
+signed = ["dep:tough", "dep:tokio", "dep:futures", "dep:url", "dep:reqwest"]
+
+[dependencies]
+cap-std = "4"
+cap-fs-ext = "4"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tar = "0.4"
+tempfile = "3"
+thiserror.workspace = true
+tough = { version = "0.24", optional = true }
+tokio = { version = "1", features = ["rt", "fs", "io-util"], optional = true }
+futures = { version = "0.3", optional = true }
+url = { version = "2", optional = true }
+reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls", "blocking", "json"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+
+[target.'cfg(any(target_os = "linux", target_os = "android", target_vendor = "apple"))'.dependencies]
+rustix = { version = "1", features = ["fs"] }
+
+[lints]
+workspace = true
